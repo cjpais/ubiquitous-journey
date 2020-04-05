@@ -1,10 +1,13 @@
 package main
 
 import (
+  "bufio"
+  "io"
   "io/ioutil"
   "log"
   "net/http"
   "os"
+  "os/exec"
 )
 
 var dataFilePath = "./cj.txt"
@@ -14,7 +17,6 @@ func newNoteHandler(w http.ResponseWriter, r *http.Request) {
   if err != nil {
     log.Println("file open problem", err.Error())
   }
-  defer dataFile.Close()
 
   body, err := ioutil.ReadAll(r.Body)
   if err != nil {
@@ -27,6 +29,27 @@ func newNoteHandler(w http.ResponseWriter, r *http.Request) {
     log.Fatal(err)
   } else {
     log.Println("appended to file successfully")
+  }
+  dataFile.Close()
+
+  // Go run our python script
+  cmd := exec.Command("/usr/bin/python", "cp_txt.py")
+  stdout, err := cmd.StdoutPipe()
+  if err != nil {
+    log.Fatal(err)
+  }
+  err = cmd.Start()
+  if err != nil {
+    log.Fatal(err)
+  }
+  go copyOutput(stdout)
+
+}
+
+func copyOutput(r io.Reader) {
+  scanner := bufio.NewScanner(r)
+  for scanner.Scan() {
+    log.Println(scanner.Text())
   }
 }
 
