@@ -10,10 +10,11 @@ import (
   "os/exec"
 )
 
-var dataFilePath = "./cj.txt"
+var prodPath = "./cj.txt"
+var devPath = "./cj_dev.txt"
 
 func newNoteHandler(w http.ResponseWriter, r *http.Request) {
-  dataFile, err := os.OpenFile(dataFilePath, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
+  dataFile, err := os.OpenFile(prodPath, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
   if err != nil {
     log.Println("file open problem", err.Error())
   }
@@ -46,6 +47,27 @@ func newNoteHandler(w http.ResponseWriter, r *http.Request) {
 
 }
 
+func newNoteHandlerDev(w http.ResponseWriter, r *http.Request) {
+  dataFile, err := os.OpenFile(devPath, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
+  if err != nil {
+    log.Println("file open problem", err.Error())
+  }
+
+  body, err := ioutil.ReadAll(r.Body)
+  if err != nil {
+    log.Fatal(err)
+  }
+
+  s := "\n" + string(body) + "\n"
+  _, err = dataFile.WriteString(s);
+  if err != nil {
+    log.Fatal(err)
+  } else {
+    log.Println("appended to file successfully")
+  }
+  dataFile.Close()
+}
+
 func copyOutput(r io.Reader) {
   scanner := bufio.NewScanner(r)
   for scanner.Scan() {
@@ -55,5 +77,10 @@ func copyOutput(r io.Reader) {
 
 func main() {
   http.HandleFunc("/note/new", newNoteHandler)
+  http.HandleFunc("/note/new/dev", newNoteHandlerDev)
+
+  fs := http.FileServer(http.Dir("."))
+  http.Handle("/", fs)
+
   log.Fatal(http.ListenAndServe(":8080", nil))
 }
