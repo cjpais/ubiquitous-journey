@@ -1,83 +1,198 @@
 package main
 
 import (
-  "bufio"
-  "io"
   "io/ioutil"
   "log"
+  "fmt"
   "net/http"
   "os"
   "os/exec"
-)
+  "time"
+  "encoding/json"
 
-var prodPath = "./cj.txt"
+  "github.com/enescakir/emoji"
+)
+var timeFormat = "2006 Jan _2 Mon 03:04:05.000 PM MST"
+var streamFormat = "\n%v %v:\n%v\n"
+
+var streamPath = "./cj.txt"
 var devPath = "./cj_dev.txt"
 
-func newNoteHandler(w http.ResponseWriter, r *http.Request) {
-  dataFile, err := os.OpenFile(prodPath, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
-  if err != nil {
-    log.Println("file open problem", err.Error())
-  }
+var basePaths = [2]string{"/stream", "/dev"}
+var filePath = map[string]string{
+  "/stream": streamPath,
+  "/dev": devPath,
+}
 
-  body, err := ioutil.ReadAll(r.Body)
-  if err != nil {
-    log.Fatal(err)
-  }
+type PlayerAction string
+type EntityType string
 
-  s := "\n" + string(body) + "\n"
-  _, err = dataFile.WriteString(s);
-  if err != nil {
-    log.Fatal(err)
-  } else {
-    log.Println("appended to file successfully")
-  }
-  dataFile.Close()
+const (
+  Podcast EntityType = "podcast"
+  PodcastEpisode EntityType = "podcast episode"
+  Thought EntityType = "thought"
+)
 
-  // Go run our python script
+var emojiType = map[EntityType]string{
+  Podcast: "\U0001f399\ufe0f",                    // :StudioMicrophone:
+  PodcastEpisode: "\U0001f399\ufe0f\U0001f4c1",   // :StudioMicrophone::FileFolder:
+  Thought: "\U0001f4ad",                          // :ThoughtBubble:
+}
+
+const (
+  Play PlayerAction = "play"
+  Seek PlayerAction = "seek"
+  Pause PlayerAction = "pause"
+)
+
+type PathHandler struct {
+  Path string
+}
+
+type Entity struct {
+  Id      int           `json:"-"`
+  TypeId  int           `json:"-"`
+  Type    EntityType    `json:"type"`
+  Data    interface{}   `json:"data"`
+}
+
+type Player struct {
+  EntityId string
+  Action PlayerAction
+  Start int
+  End int
+}
+
+func pythonCopy() {
   cmd := exec.Command("/usr/bin/python", "cp_txt.py")
-  stdout, err := cmd.StdoutPipe()
+  err := cmd.Start()
   if err != nil {
     log.Fatal(err)
   }
-  err = cmd.Start()
-  if err != nil {
-    log.Fatal(err)
-  }
-  go copyOutput(stdout)
-
 }
 
-func newNoteHandlerDev(w http.ResponseWriter, r *http.Request) {
-  dataFile, err := os.OpenFile(devPath, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
+func timeNow() (string) {
+  t := time.Now()
+  return t.Format(timeFormat)
+}
+
+
+func (ph *PathHandler) isStream() (bool) {
+  return ph.Path == "/stream"
+}
+
+func (ph *PathHandler) appendToFile(s string) {
+  // Open file as append 
+  fp := filePath[ph.Path]
+  file, err := os.OpenFile(fp, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
+  defer file.Close()
+
   if err != nil {
     log.Println("file open problem", err.Error())
   }
 
+  // Write the new data to it
+  _, err = file.WriteString(s);
+  if err != nil {
+    log.Fatal(err)
+  } else {
+    log.Println("appended to file successfully on", ph.Path)
+  }
+}
+
+func (ph *PathHandler) newThoughtHandler(w http.ResponseWriter, r *http.Request) {
   body, err := ioutil.ReadAll(r.Body)
   if err != nil {
     log.Fatal(err)
   }
 
-  s := "\n" + string(body) + "\n"
-  _, err = dataFile.WriteString(s);
-  if err != nil {
-    log.Fatal(err)
-  } else {
-    log.Println("appended to file successfully")
-  }
-  dataFile.Close()
+  s := fmt.Sprintf(streamFormat, emoji.ThoughtBalloon, timeNow(), string(body))
+  ph.appendToFile(s)
+
+  pythonCopy()
 }
 
-func copyOutput(r io.Reader) {
-  scanner := bufio.NewScanner(r)
-  for scanner.Scan() {
-    log.Println(scanner.Text())
+func (ph *PathHandler) newEntityHandler(w http.ResponseWriter, r *http.Request) {
+  var e Entity
+
+  body, err := ioutil.ReadAll(r.Body)
+  if err != nil {
+    log.Fatal(err)
   }
+  err = json.Unmarshal(body, &e)
+
+  log.Println(string(body))
+
+  es := emojiType[e.Type]
+  log.Println(es)
+
+  // TODO need to assign the entity an ID and make sure there are no duplicate entities. probably store all in memory
+
+  // TODO make this more generic
+  s := fmt.Sprintf(streamFormat, es, timeNow(), string(body))
+  ph.appendToFile(s)
+
+  // TODO call python script to get into web format 
+}
+
+func (ph *PathHandler) playerActionHandler(w http.ResponseWriter, r *http.Request) {
+  body, err := ioutil.ReadAll(r.Body)
+  if err != nil {
+    log.Fatal(err)
+  }
+  log.Println(string(body))
+
+  // TODO need to get the entity type
+
+  // TODO make this more generic
+  //s := fmt.Sprintf(streamFormat, emoji.ThoughtBalloon, timeNow(), string(body))
+  //ph.appendToFile(s)
+
+  // TODO call python script to get into web format 
+}
+
+func (ph *PathHandler) startActivityHandler(w http.ResponseWriter, r *http.Request) {
+  body, err := ioutil.ReadAll(r.Body)
+  if err != nil {
+    log.Fatal(err)
+  }
+  log.Println(string(body))
+
+  // TODO need to get the entity type
+
+  // TODO make this more generic
+  //s := fmt.Sprintf(streamFormat, emoji.ThoughtBalloon, timeNow(), string(body))
+  //ph.appendToFile(s)
+
+  // TODO call python script to get into web format 
+}
+
+func (ph *PathHandler) stopActivityHandler(w http.ResponseWriter, r *http.Request) {
+  body, err := ioutil.ReadAll(r.Body)
+  if err != nil {
+    log.Fatal(err)
+  }
+  log.Println(string(body))
+
+  // TODO need to get the entity type
+
+  // TODO make this more generic
+  //s := fmt.Sprintf("\n%v @ %v:\n %v\n", emoji.ThoughtBalloon, timeNow(), string(body))
+  //ph.appendToFile(s)
+
+  // TODO call python script to get into web format 
 }
 
 func main() {
-  http.HandleFunc("/note/new", newNoteHandler)
-  http.HandleFunc("/note/new/dev", newNoteHandlerDev)
+  for i := 0; i < 2; i++ {
+    ph := &PathHandler{Path: basePaths[i]}
+
+    http.HandleFunc(ph.Path + "/new/thought", ph.newThoughtHandler)
+    http.HandleFunc(ph.Path + "/new/entity", ph.newEntityHandler)
+    http.HandleFunc(ph.Path + "/action/player", ph.playerActionHandler)
+    http.HandleFunc(ph.Path + "/start/activity", ph.startActivityHandler)
+    http.HandleFunc(ph.Path + "/stop/activity", ph.stopActivityHandler)
+  }
 
   fs := http.FileServer(http.Dir("."))
   http.Handle("/", fs)
