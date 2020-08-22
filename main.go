@@ -28,8 +28,8 @@ type PlayerAction string
 type EntityType string
 
 const (
-  Podcast EntityType = "podcast"
-  PodcastEpisode EntityType = "podcast episode"
+  Podcast EntityType = "Podcast"
+  PodcastEpisode EntityType = "PodcastEpisode"
   Thought EntityType = "thought"
 )
 
@@ -43,6 +43,7 @@ const (
   Play PlayerAction = "play"
   Seek PlayerAction = "seek"
   Pause PlayerAction = "pause"
+  Stop PlayerAction = "stop"
 )
 
 type PathHandler struct {
@@ -57,10 +58,10 @@ type Entity struct {
 }
 
 type Player struct {
-  EntityId string
+  //EntityId string
   Action PlayerAction
-  Start int
-  End int
+  Position int
+  Entity Entity
 }
 
 func pythonCopy() {
@@ -133,22 +134,28 @@ func (ph *PathHandler) newEntityHandler(w http.ResponseWriter, r *http.Request) 
   ph.appendToFile(s)
 
   // TODO call python script to get into web format 
+  pythonCopy()
 }
 
 func (ph *PathHandler) playerActionHandler(w http.ResponseWriter, r *http.Request) {
+  var p Player
+
   body, err := ioutil.ReadAll(r.Body)
   if err != nil {
     log.Fatal(err)
   }
+  err = json.Unmarshal(body, &p)
   log.Println(string(body))
 
   // TODO need to get the entity type
+  es := "\U0001f508"
+  es += emojiType[p.Entity.Type]
 
-  // TODO make this more generic
-  //s := fmt.Sprintf(streamFormat, emoji.ThoughtBalloon, timeNow(), string(body))
-  //ph.appendToFile(s)
+  s := fmt.Sprintf(streamFormat, es, timeNow(), string(body))
+  ph.appendToFile(s)
 
   // TODO call python script to get into web format 
+  pythonCopy()
 }
 
 func (ph *PathHandler) startActivityHandler(w http.ResponseWriter, r *http.Request) {
