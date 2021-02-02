@@ -1,6 +1,5 @@
 import os
-
-from config import SCP_STRING
+import shutil
 
 HTML_DOC= """
 <!doctype html>
@@ -32,4 +31,4 @@ with open('index.html', 'w') as html_cj:
     html_string = HTML_DOC.format(rev)
     html_cj.write(html_string)
 
-os.system(SCP_STRING)
+shutil.copy('index.html', "../stream/static")
