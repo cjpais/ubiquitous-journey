@@ -2,7 +2,7 @@ package main
 
 import (
 	"bufio"
-	"context"
+	//"context"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -19,8 +19,6 @@ import (
 
 	"github.com/enescakir/emoji"
 	"github.com/google/uuid"
-	//"github.com/jackc/pgx"
-	"github.com/jackc/pgx/pgxpool"
 )
 
 var timeFormat = "2006 Jan _2 Mon 03:04:05.000 PM MST"
@@ -100,7 +98,6 @@ type Stream struct {
 type PathHandler struct {
 	Path       string
 	StreamType StreamType
-	Conn       *pgxpool.Pool
 }
 
 type Entity struct {
@@ -230,11 +227,12 @@ func (sp *StreamParser) parseQuickNote() (e error) {
 			log.Fatal(e)
 		}
 		sp.StreamData.Config.EntityName = data
-		e = addNewEntityToDB(sp.StreamData.Config, sp.DBConn)
+		//e = addNewEntityToDB(sp.StreamData.Config, sp.DBConn)
 		if e != nil {
 			log.Fatal(e)
 		}
 
+    /*
 		rows, e := sp.DBConn.Query(context.Background(),
 			"INSERT INTO quick_note (uuid, content) VALUES ($1, $2)",
 			sp.StreamData.Config.UUID, data)
@@ -247,6 +245,7 @@ func (sp *StreamParser) parseQuickNote() (e error) {
 		if rows.Err() != nil {
 			log.Fatal(rows.Err())
 		}
+    */
 
 	default:
 		log.Fatal("gave horrible input:", sp.StreamData.Config.Name)
@@ -255,6 +254,7 @@ func (sp *StreamParser) parseQuickNote() (e error) {
 	return e
 }
 
+/*
 func addNewEntityToDB(sc StreamConfig, conn *pgxpool.Pool) (e error) {
 	locationString := fmt.Sprintf("ST_GeomFromText('POINT(%v %v)', 4326)", sc.Location.Lat, sc.Location.Long)
 	log.Println("location is", locationString)
@@ -276,6 +276,7 @@ func addNewEntityToDB(sc StreamConfig, conn *pgxpool.Pool) (e error) {
 
 	return e
 }
+*/
 
 func (sp *StreamParser) parseTest() (e error) {
 
@@ -283,7 +284,7 @@ func (sp *StreamParser) parseTest() (e error) {
 	case "streamableLibrary":
 		sp.StreamData.Config.EntityName = sp.StreamData.Config.Namespace +
 			sp.StreamData.Config.Name
-		e = addNewEntityToDB(sp.StreamData.Config, sp.DBConn)
+		//e = addNewEntityToDB(sp.StreamData.Config, sp.DBConn)
 
 		if e != nil {
 			log.Fatal(e)
@@ -293,6 +294,7 @@ func (sp *StreamParser) parseTest() (e error) {
 
 		// after getting data add it into the test table
 
+    /*
 		rows, e := sp.DBConn.Query(context.Background(),
 			"INSERT INTO test (uuid, data) VALUES ($1, $2)",
 			sp.StreamData.Config.UUID, string(sp.Data))
@@ -307,6 +309,7 @@ func (sp *StreamParser) parseTest() (e error) {
 		}
 
 		log.Println("inserted into test db successfully")
+    */
 
 	default:
 		log.Fatal("gave horrible input:", sp.StreamData.Config.Name)
@@ -348,7 +351,7 @@ type PersistentBookmark struct {
 type StreamParser struct {
 	StreamData Stream
 	Data       json.RawMessage
-	DBConn     *pgxpool.Pool
+	//DBConn     *pgxpool.Pool
 }
 
 func secToHHMMSS(sec int) string {
@@ -372,7 +375,7 @@ func (sp *StreamParser) parsePersistentBookmark() (e error) {
 	// 2. Add our new entity to the DB
 	sp.StreamData.Config.EntityName = fmt.Sprintf("bookmark @ %v on %v",
 		secToHHMMSS(pb.Timestamp), pb.Episode.Title)
-	e = addNewEntityToDB(sp.StreamData.Config, sp.DBConn)
+	//e = addNewEntityToDB(sp.StreamData.Config, sp.DBConn)
 
 	log.Println("EPISODE ID", pb.Episode.Id)
 
@@ -381,6 +384,7 @@ func (sp *StreamParser) parsePersistentBookmark() (e error) {
 	}
 
 	// 3. Insert into the DB
+  /*
 	rows, e := sp.DBConn.Query(
 		context.Background(),
 		"INSERT INTO podcast_episode_bookmark "+
@@ -394,14 +398,16 @@ func (sp *StreamParser) parsePersistentBookmark() (e error) {
 		log.Fatal(e)
 	}
 
-	log.Printf("bookmark @ %v on %v",
-		secToHHMMSS(pb.Timestamp), pb.Episode.Title)
-
 	defer rows.Close()
 
 	if rows.Err() != nil {
 		log.Fatal(rows.Err())
 	}
+
+  */
+
+	log.Printf("bookmark @ %v on %v",
+		secToHHMMSS(pb.Timestamp), pb.Episode.Title)
 
 	return e
 }
@@ -414,13 +420,14 @@ func (sp *StreamParser) parsePersistentEpisode() (e error) {
 
 	// 2. Add our new entity to the DB
 	sp.StreamData.Config.EntityName = ep.Title
-	e = addNewEntityToDB(sp.StreamData.Config, sp.DBConn)
+	//e = addNewEntityToDB(sp.StreamData.Config, sp.DBConn)
 
 	if e != nil {
 		log.Fatal(e)
 	}
 
 	// 3. Insert into the DB
+  /*
 	rows, e := sp.DBConn.Query(
 		context.Background(),
 		"INSERT INTO podcast_episode "+
@@ -442,6 +449,7 @@ func (sp *StreamParser) parsePersistentEpisode() (e error) {
 	if rows.Err() != nil {
 		log.Fatal(rows.Err())
 	}
+  */
 
 	return e
 }
@@ -455,13 +463,14 @@ func (sp *StreamParser) parsePersistentPodcast() (e error) {
 
 	// 2. Add our new entity to the DB
 	sp.StreamData.Config.EntityName = p.Title
-	e = addNewEntityToDB(sp.StreamData.Config, sp.DBConn)
+	//e = addNewEntityToDB(sp.StreamData.Config, sp.DBConn)
 
 	if e != nil {
 		log.Fatal(e)
 	}
 
 	// 3. Insert into the DB
+  /*
 	rows, e := sp.DBConn.Query(
 		context.Background(),
 		"INSERT INTO podcast "+
@@ -485,6 +494,7 @@ func (sp *StreamParser) parsePersistentPodcast() (e error) {
 	}
 
 	log.Println("inserted into test db successfully")
+  */
 
 	return e
 }
@@ -576,7 +586,7 @@ func (ph *PathHandler) streamInputHandler(w http.ResponseWriter, r *http.Request
 	sp := StreamParser{
 		StreamData: stream,
 		Data:       data,
-		DBConn:     ph.Conn,
+		//DBConn:     ph.Conn,
 	}
 	err = sp.parseStreamInput()
 	if err != nil {
@@ -664,11 +674,6 @@ func main() {
 	for i := 0; i < 2; i++ {
 		ph := &PathHandler{}
 		ph.init(basePaths[i])
-		conn, err := pgxpool.Connect(context.Background(), "postgres://cj:20conroe09@localhost:5432/cj_test2")
-		ph.Conn = conn
-		if err != nil {
-			log.Fatal(err)
-		}
 
 		http.HandleFunc(ph.Path+"/stream", ph.streamInputHandler)
 		http.HandleFunc(ph.Path+"/new/thought", ph.newThoughtHandler)
