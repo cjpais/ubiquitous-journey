@@ -664,15 +664,14 @@ func buildStreamDB() {
 
 func main() {
 
-	//args := os.Args[1:]
-	//port := ":8080"
+	args := os.Args[1:]
+	port := ":4040"
 
 	buildStreamDB()
 
-	/*
 	if len(args) > 0 && args[0] == "debug" {
 		port = ":10000"
-	}*/
+	}
 
 	router := gin.Default()
 	authorized := router.Group("/", gin.BasicAuth(gin.Accounts{
@@ -693,5 +692,5 @@ func main() {
 
 	router.StaticFile("/index.html", "./index.html")
 
-	router.Run(":4040")
+	router.Run(port)
 }
