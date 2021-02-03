@@ -7,7 +7,7 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
-	"net/http"
+	// "net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -19,6 +19,8 @@ import (
 
 	"github.com/enescakir/emoji"
 	"github.com/google/uuid"
+
+	"github.com/gin-gonic/gin"
 )
 
 var timeFormat = "2006 Jan _2 Mon 03:04:05.000 PM MST"
@@ -148,8 +150,8 @@ func (ph *PathHandler) appendToFile(fp string, s string) {
 	}
 }
 
-func (ph *PathHandler) newThoughtHandler(w http.ResponseWriter, r *http.Request) {
-	body, err := ioutil.ReadAll(r.Body)
+func (ph *PathHandler) newThoughtHandler(c *gin.Context) {
+	body, err := ioutil.ReadAll(c.Request.Body)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -161,10 +163,10 @@ func (ph *PathHandler) newThoughtHandler(w http.ResponseWriter, r *http.Request)
 	pythonCopy()
 }
 
-func (ph *PathHandler) newEntityHandler(w http.ResponseWriter, r *http.Request) {
+func (ph *PathHandler) newEntityHandler(c *gin.Context) {
 	var e Entity
 
-	body, err := ioutil.ReadAll(r.Body)
+	body, err := ioutil.ReadAll(c.Request.Body)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -181,10 +183,10 @@ func (ph *PathHandler) newEntityHandler(w http.ResponseWriter, r *http.Request) 
 	pythonCopy()
 }
 
-func (ph *PathHandler) playerActionHandler(w http.ResponseWriter, r *http.Request) {
+func (ph *PathHandler) playerActionHandler(c *gin.Context) {
 	var p Player
 
-	body, err := ioutil.ReadAll(r.Body)
+	body, err := ioutil.ReadAll(c.Request.Body)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -201,16 +203,16 @@ func (ph *PathHandler) playerActionHandler(w http.ResponseWriter, r *http.Reques
 	pythonCopy()
 }
 
-func (ph *PathHandler) startActivityHandler(w http.ResponseWriter, r *http.Request) {
-	body, err := ioutil.ReadAll(r.Body)
+func (ph *PathHandler) startActivityHandler(c *gin.Context) {
+	body, err := ioutil.ReadAll(c.Request.Body)
 	if err != nil {
 		log.Fatal(err)
 	}
 	log.Println(string(body))
 }
 
-func (ph *PathHandler) stopActivityHandler(w http.ResponseWriter, r *http.Request) {
-	body, err := ioutil.ReadAll(r.Body)
+func (ph *PathHandler) stopActivityHandler(c *gin.Context) {
+	body, err := ioutil.ReadAll(c.Request.Body)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -534,13 +536,13 @@ func (sp *StreamParser) parseStreamInput() (e error) {
 
 var mutex = sync.RWMutex{}
 
-func (ph *PathHandler) streamInputHandler(w http.ResponseWriter, r *http.Request) {
+func (ph *PathHandler) streamInputHandler(c *gin.Context) {
 	// Lock becasue we can have concurrent map access
 	mutex.Lock()
 	defer mutex.Unlock()
 
 	log.Println("hit stream handler")
-	body, err := ioutil.ReadAll(r.Body)
+	body, err := ioutil.ReadAll(c.Request.Body)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -662,29 +664,34 @@ func buildStreamDB() {
 
 func main() {
 
-	args := os.Args[1:]
-	port := ":8080"
+	//args := os.Args[1:]
+	//port := ":8080"
 
 	buildStreamDB()
 
+	/*
 	if len(args) > 0 && args[0] == "debug" {
 		port = ":10000"
-	}
+	}*/
+
+	router := gin.Default()
+	authorized := router.Group("/", gin.BasicAuth(gin.Accounts{
+		os.Getenv("USER"): os.Getenv("STREAM_PASS"),
+	}))
 
 	for i := 0; i < 2; i++ {
 		ph := &PathHandler{}
 		ph.init(basePaths[i])
 
-		http.HandleFunc(ph.Path+"/stream", ph.streamInputHandler)
-		http.HandleFunc(ph.Path+"/new/thought", ph.newThoughtHandler)
-		http.HandleFunc(ph.Path+"/new/entity", ph.newEntityHandler)
-		http.HandleFunc(ph.Path+"/action/player", ph.playerActionHandler)
-		http.HandleFunc(ph.Path+"/start/activity", ph.startActivityHandler)
-		http.HandleFunc(ph.Path+"/stop/activity", ph.stopActivityHandler)
+		authorized.POST(ph.Path+"/stream", ph.streamInputHandler)
+		authorized.POST(ph.Path+"/new/thought", ph.newThoughtHandler)
+		authorized.POST(ph.Path+"/new/entity", ph.newEntityHandler)
+		authorized.POST(ph.Path+"/action/player", ph.playerActionHandler)
+		authorized.POST(ph.Path+"/start/activity", ph.startActivityHandler)
+		authorized.POST(ph.Path+"/stop/activity", ph.stopActivityHandler)
 	}
 
-	fs := http.FileServer(http.Dir("."))
-	http.Handle("/", fs)
+	router.StaticFile("/index.html", "./index.html")
 
-	log.Fatal(http.ListenAndServe(port, nil))
+	router.Run(":4040")
 }
